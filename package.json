@@ -29,7 +29,7 @@
     "test:watch": "nwb test --server"
   },
   "dependencies": {
-    "inputmask-core": "^2.1.1"
+    "inputmask-core": "briantrice/inputmask-core"
   },
   "peerDependencies": {
     "react": "0.14.x || 15.x.x"
