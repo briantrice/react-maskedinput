@@ -3,6 +3,8 @@ var InputMask = require('inputmask-core')
 
 var KEYCODE_Z = 90
 var KEYCODE_Y = 89
+var KEYCODE_UP_ARROW = 38
+var KEYCODE_DOWN_ARROW = 40
 
 function isUndo(e) {
   return (e.ctrlKey || e.metaKey) && e.keyCode === (e.shiftKey ? KEYCODE_Y : KEYCODE_Z)
@@ -59,6 +61,8 @@ function setSelection(el, selection) {
 
 var MaskedInput = React.createClass({
   propTypes: {
+    onChange: React.PropTypes.func,
+    onSubmit: React.PropTypes.func,
     mask: React.PropTypes.string.isRequired,
 
     formatCharacters: React.PropTypes.object,
@@ -154,44 +158,56 @@ var MaskedInput = React.createClass({
     }
   },
 
+  _annotateEventWithUpdatedValue: function (e, onlyUpdateNonEmpty) {
+    var value = this._getDisplayValue()
+    e.target.value = value
+    if (!onlyUpdateNonEmpty || value) {
+      this._updateInputSelection()
+    }
+    if (this.props.onChange) {
+      this.props.onChange(e)
+    }
+  },
+
   _onKeyDown(e) {
     // console.log('onKeyDown', JSON.stringify(getSelection(this.input)), e.key, e.target.value)
 
     if (isUndo(e)) {
       e.preventDefault()
       if (this.mask.undo()) {
-        e.target.value = this._getDisplayValue()
-        this._updateInputSelection()
-        if (this.props.onChange) {
-          this.props.onChange(e)
-        }
+        this._annotateEventWithUpdatedValue(e)
       }
       return
     }
     else if (isRedo(e)) {
       e.preventDefault()
       if (this.mask.redo()) {
-        e.target.value = this._getDisplayValue()
-        this._updateInputSelection()
-        if (this.props.onChange) {
-          this.props.onChange(e)
-        }
+        this._annotateEventWithUpdatedValue(e)
       }
       return
+    }
+
+    // up arrow
+    if (e.keyCode === KEYCODE_UP_ARROW) {
+      e.preventDefault()
+      this._updateMaskSelection()
+      if (this.mask.increment()) {
+        this._annotateEventWithUpdatedValue(e)
+      }
+    } // down arrow
+    else if (e.keyCode === KEYCODE_DOWN_ARROW) {
+      e.preventDefault()
+      this._updateMaskSelection()
+      if (this.mask.decrement()) {
+        this._annotateEventWithUpdatedValue(e)
+      }
     }
 
     if (e.key === 'Backspace') {
       e.preventDefault()
       this._updateMaskSelection()
       if (this.mask.backspace()) {
-        var value = this._getDisplayValue()
-        e.target.value = value
-        if (value) {
-          this._updateInputSelection()
-        }
-        if (this.props.onChange) {
-          this.props.onChange(e)
-        }
+        this._annotateEventWithUpdatedValue(e, true)
       }
     }
   },
@@ -200,17 +216,20 @@ var MaskedInput = React.createClass({
     // console.log('onKeyPress', JSON.stringify(getSelection(this.input)), e.key, e.target.value)
 
     // Ignore modified key presses
-    // Ignore enter key to allow form submission
-    if (e.metaKey || e.altKey || e.ctrlKey || e.key === 'Enter') { return }
+    if (e.metaKey || e.altKey || e.ctrlKey) { return }
+
+    // Ignore enter key to allow form submission, but allow explicit onSubmit handler notice
+    if (e.key === 'Enter') {
+      if (this.props.onSubmit) {
+        this.props.onSubmit(e)
+      }
+      return
+    }
 
     e.preventDefault()
     this._updateMaskSelection()
     if (this.mask.input((e.key || e.data))) {
-      e.target.value = this.mask.getValue()
-      this._updateInputSelection()
-      if (this.props.onChange) {
-        this.props.onChange(e)
-      }
+      this._annotateEventWithUpdatedValue(e)
     }
   },
 
